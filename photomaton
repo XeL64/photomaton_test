@@ -1,0 +1,128 @@
+# inspired by http://frederickvandenbosch.be/?p=1297
+
+from __future__ import print_function
+import os
+import time
+import sys
+from PIL import Image
+
+
+import kivy
+kivy.require('1.0.6') # replace with your current kivy version !
+
+from kivy.app import App
+from kivy.uix.button import Button
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.image import Image as kivyImage
+from kivy.clock import Clock
+from kivy.graphics import Color, Rectangle
+
+from picamera import PiCamera as PiCam
+
+
+# Some variables
+photoPath = "/home/pi/photobooth/"
+photoName = time.strftime("%Y%m%d%H%M%S") + "_photobooth.jpg"
+photoResize = 512, 384
+photoTitle = "Fred's Photo Booth!"
+
+# Callback function for photo button
+def photo_callback_rsapistill(obj):
+    # Define filename with timestamp
+    photoName = time.strftime("%Y%m%d%H%M%S") + "_photobooth.jpg"
+    # Take photo using "raspistill"
+    os.system("sudo raspistill -p '144,48,512,384' --vflip -w 1920 -h 1440 -o " + photoPath + photoName)
+    #~ sys.stdout.write('%s' %(dir(obj)))
+    import pdb; pdb.set_trace()
+    # Resize the high res photo to create thumbnail
+    Image.open(photoPath + photoName).resize(photoResize, Image.ANTIALIAS).save(photoPath + "thumbnail.jpg")
+
+
+def photo_callback_picamera(obj):
+    photoName = time.strftime("%Y%m%d%H%M%S") + "_photobooth.jpg"
+    return
+
+class MyCamera():
+    cam = PiCam()
+    photoPath = "/home/pi/photobooth/"
+    photoName = time.strftime("%Y%m%d%H%M%S") + "_photobooth.jpg"
+    photoResize = 512, 384
+    photoTitle = "Fred's Photo Booth!"
+    def preview_start(self, obj):
+        self.cam.start_preview()
+        self.cam.preview.fullscreen = False
+        self.cam.preview.window = (0, 0, 1280, 820)
+    
+    def preview_stop(self, obj):
+        self.cam.stop_preview()
+    
+    def photo_callback_picamera(self, obj):
+        photoName = time.strftime("%Y%m%d%H%M%S") + "_photobooth.jpg"
+        self.cam.capture(photoPath + photoName)
+        Image.open(photoPath + photoName).resize(photoResize, Image.ANTIALIAS).save(photoPath + "thumbnail.jpg")
+
+
+    
+def get_4_last_pic():
+    return
+
+
+class MyApp(App):
+    camera = MyCamera()
+    # Display the latest thumbnail
+    photo = kivyImage(source="/home/pi/photobooth/thumbnail.jpg")
+    photo2 = kivyImage(source="/home/pi/photobooth/thumbnail.jpg")
+    photo3 = kivyImage(source="/home/pi/photobooth/thumbnail.jpg")
+    photo4 = kivyImage(source="/home/pi/photobooth/thumbnail.jpg")
+
+    def build(self):
+        # Set up the layout
+        global_layout = GridLayout(cols=1, rows=2, spacing=10, padding=10)
+        last_pic_layout = GridLayout(cols=2, spacing=5, padding=5)
+        #~ tools_layout = GridLayout(cols=3, rows=1, row_force_default=True, row_default_height=80, spacing=5, padding=5)
+        # Create the UI objects (and bind them to callbacks, if necessary)
+        take_pic = Button(text="Take Picture", size_hint=(.2, .2)) # Button: 20% width, 100% height
+        take_pic.bind(on_press=self.camera.photo_callback_picamera) # when pressed, trigger the photo_callback function
+        
+        preview_on = Button(text="start preview", size_hint=(.2, .2)) # Button: 20% width, 100% height
+        preview_on.bind(on_press=self.camera.preview_start) # when pressed, trigger the photo_callback function
+
+        preview_off = Button(text="stop preview", size_hint=(.2, .2)) # Button: 20% width, 100% height
+        preview_off.bind(on_press=self.camera.preview_stop) # when pressed, trigger the photo_callback function
+
+        close_app = Button(text="Quit", size_hint=(.2, .2)) # Button: 20% width, 100% height
+        close_app.bind(on_press=App.get_running_app().stop) # when pressed, trigger the photo_callback function
+
+        # Periodically refresh the displayed photo using the callback function
+        Clock.schedule_interval(self.callback, 1)
+
+        # Add the UI elements to the layout
+        
+        global_layout.add_widget(last_pic_layout)
+        #~ global_layout.add_widget(tools_layout)
+        last_pic_layout.add_widget(self.photo)
+        last_pic_layout.add_widget(self.photo2)
+        last_pic_layout.add_widget(self.photo3)
+        last_pic_layout.add_widget(self.photo4)
+        #~ tools_layout.add_widget(preview_on)
+        #~ tools_layout.add_widget(take_pic)
+        #~ tools_layout.add_widget(preview_off)
+        last_pic_layout.add_widget(preview_on)
+        last_pic_layout.add_widget(take_pic)
+        last_pic_layout.add_widget(preview_off)
+        last_pic_layout.add_widget(close_app)
+
+        return global_layout
+            
+                
+    # Callback for thumbnail refresh
+    def callback(self, instance):
+        self.photo.reload()
+        self.photo2.reload()
+        self.photo3.reload()
+        self.photo4.reload()
+
+
+if __name__ == '__main__':
+    MyApp().run()
